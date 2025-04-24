@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Planilha de Dados</title>
+  <style>
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 1rem;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 8px;
+      text-align: center;
+    }
+    input {
+      width: 100%;
+      box-sizing: border-box;
+    }
+    button {
+      margin: 5px;
+    }
+  </style>
+</head>
+<body>
+  <h2>Entrada de Dados</h2>
+  <table id="data-table">
+    <thead>
+      <tr>
+        <th>COLUNA A (CNPJ)</th>
+        <th>COLUNA B (Periodicidade)</th>
+        <th>COLUNA C (Data Base)</th>
+        <th>COLUNA D (Início)</th>
+        <th>COLUNA E (Término)</th>
+        <th>Ação</th>
+      </tr>
+    </thead>
+    <tbody id="table-body">
+      <tr>
+        <td><input type="text" pattern="\d{14}" maxlength="14" placeholder="Somente números"></td>
+        <td><input type="text" pattern="[A-Za-z]{1}" maxlength="1" placeholder="1 letra"></td>
+        <td><input type="text" pattern="\d{2}/\d{2}/\d{4}" placeholder="dd/mm/aaaa"></td>
+        <td><input type="text" pattern="\d{2}:\d{2}" placeholder="hh:mm"></td>
+        <td><input type="text" pattern="\d{2}:\d{2}" placeholder="hh:mm"></td>
+        <td><button onclick="removeRow(this)">Remover</button></td>
+      </tr>
+    </tbody>
+  </table>
+  <button onclick="addRow()">Adicionar Linha</button>
+  <button onclick="exportCSV()">Exportar CSV</button>
+
+  <script>
+    function addRow() {
+      const tbody = document.getElementById('table-body');
+      const row = tbody.rows[0].cloneNode(true);
+      Array.from(row.querySelectorAll('input')).forEach(input => input.value = '');
+      tbody.appendChild(row);
+    }
+
+    function removeRow(button) {
+      const row = button.parentElement.parentElement;
+      const tbody = document.getElementById('table-body');
+      if (tbody.rows.length > 1) {
+        tbody.removeChild(row);
+      } else {
+        alert("É necessário pelo menos uma linha.");
+      }
+    }
+
+    function exportCSV() {
+      const rows = document.querySelectorAll('#data-table tbody tr');
+      let csvContent = "";
+
+      rows.forEach(row => {
+        const values = Array.from(row.querySelectorAll('input')).map(input => input.value.trim());
+        csvContent += values.join(';') + "\n";
+      });
+
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", "dados.csv");
+      link.style.display = "none";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  </script>
+</body>
+</html>
