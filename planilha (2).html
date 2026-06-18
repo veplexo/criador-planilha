@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Planilha de Dados</title>
+  <style>
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 1rem;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 8px;
+      text-align: center;
+    }
+    input {
+      width: 100%;
+      box-sizing: border-box;
+    }
+    button {
+      margin: 5px;
+    }
+    .cell-wrap {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .cell-wrap input[type="text"] {
+      flex: 1;
+    }
+    .cell-wrap input[type="date"],
+    .cell-wrap input[type="time"] {
+      width: 28px;
+      padding: 0;
+      border: none;
+      background: transparent;
+      flex: 0 0 auto;
+      /* esconde o texto nativo do date/time, deixando só o ícone clicável */
+      color: transparent;
+    }
+    .cell-wrap input[type="date"]::-webkit-calendar-picker-indicator,
+    .cell-wrap input[type="time"]::-webkit-calendar-picker-indicator {
+      opacity: 1;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <h2>Entrada de Dados</h2>
+  <table id="data-table">
+    <thead>
+      <tr>
+        <th>COLUNA A (CNPJ)</th>
+        <th>COLUNA B (Periodicidade)</th>
+        <th>COLUNA C (Data Base)</th>
+        <th>COLUNA D (Início)</th>
+        <th>COLUNA E (Término)</th>
+        <th>Ação</th>
+      </tr>
+    </thead>
+    <tbody id="table-body">
+      <tr>
+        <td><input type="text" class="cnpj-input" pattern="\d{14}" maxlength="14" placeholder="Somente números"></td>
+        <td>
+          <select class="periodicidade-select">
+            <option value="" selected disabled hidden></option>
+            <option value="S">Semanal</option>
+            <option value="Q">Quinzenal</option>
+            <option value="M">Mensal</option>
+          </select>
+        </td>
+        <td>
+          <div class="cell-wrap">
+            <input type="text" class="data-text" maxlength="10" placeholder="dd/mm/aaaa">
+            <input type="date" class="data-picker" aria-label="Escolher data">
+          </div>
+        </td>
+        <td>
+          <div class="cell-wrap">
+            <input type="text" class="hora-text" maxlength="5" placeholder="hh:mm">
+            <input type="time" class="hora-picker" aria-label="Escolher horário">
+          </div>
+        </td>
+        <td>
+          <div class="cell-wrap">
+            <input type="text" class="hora-text" maxlength="5" placeholder="hh:mm">
+            <input type="time" class="hora-picker" aria-label="Escolher horário">
+          </div>
+        </td>
+        <td><button onclick="removeRow(this)">Remover</button></td>
+      </tr>
+    </tbody>
+  </table>
+  <button onclick="addRow()">Adicionar Linha</button>
+  <button onclick="exportCSV()">Exportar CSV</button>
+  <script>
+    // Converte "aaaa-mm-dd" (formato do <input type="date">) para "dd/mm/aaaa"
+    function isoParaBr(iso) {
+      if (!iso) return '';
+      const [ano, mes, dia] = iso.split('-');
+      return `${dia}/${mes}/${ano}`;
+    }
+    // Converte "dd/mm/aaaa" para "aaaa-mm-dd" (para alimentar o <input type="date">)
+    function brParaIso(br) {
+      const m = br.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+      if (!m) return '';
+      const [, dia, mes, ano] = m;
+      return `${ano}-${mes}-${dia}`;
+    }
+    // Aplica a máscara hh:mm a partir de dígitos digitados, ex: "0000" -> "00:00"
+    function formatarHora(valor) {
+      const digitos = valor.replace(/\D/g, '').slice(0, 4);
+      if (digitos.length <= 2) return digitos;
+      return digitos.slice(0, 2) + ':' + digitos.slice(2);
+    }
+
+    function vincularEventosLinha(row) {
+      // CNPJ: só números
+      const cnpjInput = row.querySelector('.cnpj-input');
+      if (cnpjInput) {
+        cnpjInput.addEventListener('input', () => {
+          cnpjInput.value = cnpjInput.value.replace(/\D/g, '').slice(0, 14);
+        });
+      }
+
+      // Data: campo de texto livre + seletor de calendário, sincronizados
+      const dataText = row.querySelector('.data-text');
+      const dataPicker = row.querySelector('.data-picker');
+      if (dataText && dataPicker) {
+        dataText.addEventListener('input', () => {
+          let v = dataText.value.replace(/\D/g, '').slice(0, 8);
+          if (v.length > 4) v = v.slice(0, 2) + '/' + v.slice(2, 4) + '/' + v.slice(4);
+          else if (v.length > 2) v = v.slice(0, 2) + '/' + v.slice(2);
+          dataText.value = v;
+          const iso = brParaIso(v);
+          if (iso) dataPicker.value = iso;
+        });
+        dataPicker.addEventListener('input', () => {
+          dataText.value = isoParaBr(dataPicker.value);
+        });
+      }
+
+      // Horários: campo de texto com máscara + seletor de relógio, sincronizados
+      row.querySelectorAll('.hora-text').forEach(horaText => {
+        const horaPicker = horaText.parentElement.querySelector('.hora-picker');
+        horaText.addEventListener('input', () => {
+          horaText.value = formatarHora(horaText.value);
+          if (/^\d{2}:\d{2}$/.test(horaText.value) && horaPicker) {
+            horaPicker.value = horaText.value;
+          }
+        });
+        if (horaPicker) {
+          horaPicker.addEventListener('input', () => {
+            horaText.value = horaPicker.value;
+          });
+        }
+      });
+    }
+
+    function addRow() {
+      const tbody = document.getElementById('table-body');
+      const row = tbody.rows[0].cloneNode(true);
+      Array.from(row.querySelectorAll('input')).forEach(input => input.value = '');
+      const select = row.querySelector('.periodicidade-select');
+      if (select) select.value = '';
+      tbody.appendChild(row);
+      vincularEventosLinha(row);
+    }
+    function removeRow(button) {
+      const row = button.parentElement.parentElement;
+      const tbody = document.getElementById('table-body');
+      if (tbody.rows.length > 1) {
+        tbody.removeChild(row);
+      } else {
+        alert("É necessário pelo menos uma linha.");
+      }
+    }
+    function exportCSV() {
+      const rows = document.querySelectorAll('#data-table tbody tr');
+      let csvContent = "";
+      rows.forEach(row => {
+        // Pega apenas os inputs "de valor real": text e a letra de periodicidade
+        // (os inputs do tipo date/time são apenas seletores auxiliares)
+        const cnpj = row.querySelector('.cnpj-input').value.trim();
+        const periodicidade = row.querySelector('.periodicidade-select').value.trim();
+        const data = row.querySelector('.data-text').value.trim();
+        const horaInicio = row.querySelectorAll('.hora-text')[0].value.trim();
+        const horaTermino = row.querySelectorAll('.hora-text')[1].value.trim();
+
+        const cnpjFormatado = cnpj !== '' ? cnpj.padStart(14, '0') : '';
+
+        const values = [cnpjFormatado, periodicidade, data, horaInicio, horaTermino];
+        csvContent += values.join(';') + "\n";
+      });
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", "dados.csv");
+      link.style.display = "none";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
+    // Vincula os eventos da primeira linha já existente no HTML
+    vincularEventosLinha(document.querySelector('#table-body tr'));
+  </script>
+</body>
+</html>
